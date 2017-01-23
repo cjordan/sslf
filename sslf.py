@@ -37,24 +37,38 @@ def mexican_hat(x, a, b, c):
     return a * hat/max(hat)
 
 
-def find_cwt_peak(cwt_spec, scale, snr=6.5, rms=None):
+def find_cwt_peak(cwt_spec, snr=6.5, rms=None):
     """
     From a wavelet-domain spectrum (and an expected scale), find a peak
     and return its fitted parameters.
     """
-    y1 = max(cwt_spec)
+    y_peak = max(cwt_spec)
     if rms is None:
         rms = find_background_rms(cwt_spec)
 
     # Is this maximum significant?
-    if y1/rms > snr:
-        x = np.arange(0, len(cwt_spec))
-        x1 = find_nearest(cwt_spec, y1)
-        popt, _ = optimize.curve_fit(mexican_hat, x, cwt_spec, p0=(y1, x1, 3*scale),
-                                     bounds=([0.8*y1, x1-5, scale], [1.2*y1, x1+5, 4*scale]))
-        return popt, y1/rms
+    if y_peak/rms > snr:
+        x_peak = find_nearest(cwt_spec, y_peak)
+        return x_peak, y_peak/rms
 
     return None, None
+
+
+def blank_spectrum_part(spectrum, point, radius, value=0):
+    lower = point+int(-radius)
+    upper = point+int(radius)
+    if lower < 0:
+        lower = 0
+    if upper > len(spectrum):
+        upper = len(spectrum)
+    spectrum[lower:upper] = value
+
+
+class Peak(object):
+    def __init__(self, channel, snr, width):
+        self.channel = channel
+        self.snr = snr
+        self.width = width
 
 
 class Spectrum(object):
@@ -92,52 +106,66 @@ class Spectrum(object):
         An SNR of 6.5 is a good compromise for reducing the number of false positives found
         while reliably finding real, significant peaks.
 
-        May be worthwhile to be in some smoothing for every element of cwt_mat.
+        It may be worthwhile to be in some smoothing for every element of cwt_mat.
         """
 
         assert len(scales) > 0, "No scales supplied!"
 
-        peaks, snrs, fits = [], [], []
+        peaks = []
         cwt_mat = signal.cwt(self.original, wavelet, scales)
-        x = np.arange(cwt_mat.shape[1])
 
-        for i, s in enumerate(scales):
+        for i, scale in enumerate(scales):
             y = cwt_mat[i]
             rms = find_background_rms(y)
 
-            # Fit any existing peaks.
+            # Blank any existing peaks.
             for p in peaks:
-                if not y[p] < 0 and np.mean(y[p-10:p+10])/rms > 3:
-                    try:
-                        popt, _ = optimize.curve_fit(mexican_hat, x, y, p0=(y[p], p, s),
-                                                     bounds=([0.8*y[p], p-10, s], [1.2*y[p], p+10, 4*s]))
-                        if np.abs(popt[1]-p) < 5:
-                            y -= mexican_hat(x, *popt)
-                    except RuntimeError:
-                        continue
+                lower = p.channel+int(-scale*2)
+                upper = p.channel+int(scale*2)
+                if lower < 0:
+                    lower = 0
+                if upper > len(y):
+                    upper = len(y)
+                peak = max(y[lower:upper])
+
+                # peak_snr = peak/rms
+                # if peak_snr > p.snr:
+                #     # print "Updating peak", p.channel, "old scale:", p.width, "new scale:", scale
+                #     # print "\t\t old snr:", p.snr, "new scale:", peak_snr
+                #     # print ""
+                #     # The peak found in this CWT is more significant than that found before. Update.
+                #     x_peak = find_nearest(y, peak)
+                #     p.channel = x_peak
+                #     p.snr = peak_snr
+                #     p.width = scale
+
+                # Replace the part of the spectrum containing the peak with zeros.
+                blank_spectrum_part(y, p.channel, radius=1.3*scale)
 
             while True:
                 # Find peaks.
                 # There should be checks on the returned parameters,
                 # e.g. against the current i (scale length)
-                popt, sig = find_cwt_peak(y, s, snr=snr, rms=rms)
-                if popt is not None:
-                    y -= mexican_hat(x, *popt)
+                peak, sig = find_cwt_peak(y, snr=snr, rms=rms)
+                if peak is not None:
+                    # y -= mexican_hat(x, *popt)
+                    blank_spectrum_part(y, peak, radius=1.3*scale)
                 else:
                     break
 
                 # Check if this peak has already been found.
-                if not np.any(np.isclose([popt[1]], peaks, atol=min_space, rtol=0)):
+                # if not np.any(np.isclose([peak], [p.channel for p in peaks],
+                #                          atol=min_space, rtol=0)):
+                if not np.any(np.isclose([peak], [p.channel for p in peaks] + [0, len(y)],
+                                         atol=min_space, rtol=0)):
                     # Round the peak positions to integers.
-                    peaks.append(np.rint(popt[1]).astype(int))
-                    snrs.append(sig)
-                    fits.append(popt)
+                    peaks.append(Peak(np.rint(peak).astype(int), sig, scale))
 
-        self.channel_peaks = peaks
-        self.peak_snrs = snrs
-        self.peak_fits = fits
+        self.channel_peaks = [p.channel for p in peaks]
+        self.peak_snrs = [p.snr for p in peaks]
+        self.peak_widths = [p.width for p in peaks]
         if self.vel is not None:
-            self.vel_peaks = self.vel[peaks]
+            self.vel_peaks = [self.vel[p.channel] for p in peaks]
 
 
     def vel_peaks2chan_peaks(self):
@@ -150,7 +178,7 @@ class Spectrum(object):
             self.channel_peaks.append(np.abs(self.vel-vp).argmin())
 
 
-    def subtract_bandpass(self, window_length=101, poly_order=1, p0s=None, width_factor=3, allowable_peak_gap=10):
+    def subtract_bandpass(self, window_length=101, poly_order=1, p0s=None, width_factor=8, allowable_peak_gap=10):
         """
         Fit Gaussians to the specified lines, then subtract the coarse
         bandpass. Initial guesses for the Gaussian fits can (and should)
@@ -167,20 +195,8 @@ class Spectrum(object):
                 p0 = p0s[i]
             width = p0[2]
 
-            ## Naive implementation - assumes that the spectral line sits on a bandpass of 0.
-            # popt, _ = optimize.curve_fit(gaussian, x, self.original, p0=p0)
-            # self.bandpass -= gaussian(x, *popt)
-
-            # ## Isolate the relevant chunk of the spectrum before fitting.
-            # width = p0[2]
-            # chunk = self.original[p-int(width_factor*width):p+int(width_factor*width)]
-            # median = np.median(chunk)
-            # popt, _ = optimize.curve_fit(gaussian, np.arange(len(chunk)), chunk-median, p0=p0)
-            # popt[1] -= int(width_factor*width) + p
-            # self.bandpass -= gaussian(x, *popt)
-
             ## Blank the lines, fitting the bandpass around them.
-            mask[p+int(-width*width_factor):p+int(width*width_factor)] = 1
+            blank_spectrum_part(mask, p, radius=width*width_factor, value=1)
 
         self.filtered = copy.copy(self.original)
 
@@ -190,6 +206,12 @@ class Spectrum(object):
             e1, e2 = edges[2*i], edges[2*i+1]
 
             if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
+                # import matplotlib.pyplot as plt
+                # plt.plot(self.original)
+                # plt.plot(mask)
+                # print self.channel_peaks
+                # plt.plot(filtered)
+                # plt.show()
                 print "Peak found within the edge of the spectrum - too lazy to account for this now, pull requests welcome."
                 # exit()
                 continue
