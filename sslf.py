@@ -5,6 +5,8 @@ import copy
 import numpy as np
 from scipy import optimize, signal
 
+# import matplotlib.pyplot as plt
+
 
 def find_nearest(np_array, value):
     return np.abs(np_array - value).argmin()
@@ -94,7 +96,7 @@ class Spectrum(object):
         self.rms = find_background_rms(spectrum)
 
 
-    def find_cwt_peaks(self, scales=[], snr=6.5, min_space=30, wavelet=signal.ricker):
+    def find_cwt_peaks(self, scales=[], snr=6.5, min_space=5, wavelet=signal.ricker):
         """
         From the input spectrum (and a range of scales to search):
         - perform a CWT
@@ -116,9 +118,11 @@ class Spectrum(object):
 
         for i, scale in enumerate(scales):
             y = cwt_mat[i]
+            x = np.arange(len(y)).astype(np.float)
             rms = find_background_rms(y)
 
             # Blank any existing peaks.
+            # fig, ax = plt.subplots(1, figsize=(20, 1))
             for p in peaks:
                 lower = p.channel+int(-scale*2)
                 upper = p.channel+int(scale*2)
@@ -127,12 +131,12 @@ class Spectrum(object):
                 if upper > len(y):
                     upper = len(y)
                 peak = max(y[lower:upper])
+                peak_pos = find_nearest(y, peak)
 
                 # peak_snr = peak/rms
                 # if peak_snr > p.snr:
-                #     # print "Updating peak", p.channel, "old scale:", p.width, "new scale:", scale
-                #     # print "\t\t old snr:", p.snr, "new scale:", peak_snr
-                #     # print ""
+                #     print "Updating peak", p.channel, "scale from", p.width, "to", scale, "snr from", p.snr, "to", peak_snr
+                #     print ""
                 #     # The peak found in this CWT is more significant than that found before. Update.
                 #     x_peak = find_nearest(y, peak)
                 #     p.channel = x_peak
@@ -140,16 +144,23 @@ class Spectrum(object):
                 #     p.width = scale
 
                 # Replace the part of the spectrum containing the peak with zeros.
-                blank_spectrum_part(y, p.channel, radius=1.3*scale)
+                # ax.plot(y, c='b')
+                y -= mexican_hat(x, peak, peak_pos, scale)
+                # ax.plot(y, c='g')
+                # blank_spectrum_part(y, p.channel, radius=1.3*scale)
 
+            rms = find_background_rms(y)
             while True:
                 # Find peaks.
                 # There should be checks on the returned parameters,
                 # e.g. against the current i (scale length)
                 peak, sig = find_cwt_peak(y, snr=snr, rms=rms)
                 if peak is not None:
-                    # y -= mexican_hat(x, *popt)
-                    blank_spectrum_part(y, peak, radius=1.3*scale)
+                    # ax.plot(y, c='r')
+                    # ax.plot(mexican_hat(x, y[peak], peak, scale))
+                    y -= mexican_hat(x, y[peak], peak, scale)
+                    # ax.plot(y)
+                    # blank_spectrum_part(y, peak, radius=1.3*scale)
                 else:
                     break
 
@@ -160,6 +171,9 @@ class Spectrum(object):
                                          atol=min_space, rtol=0)):
                     # Round the peak positions to integers.
                     peaks.append(Peak(np.rint(peak).astype(int), sig, scale))
+            # ax.plot(y, c='k')
+            # ax.set_xlim(0, len(y))
+            # plt.show()
 
         self.channel_peaks = [p.channel for p in peaks]
         self.peak_snrs = [p.snr for p in peaks]
@@ -178,7 +192,7 @@ class Spectrum(object):
             self.channel_peaks.append(np.abs(self.vel-vp).argmin())
 
 
-    def subtract_bandpass(self, window_length=101, poly_order=1, p0s=None, width_factor=8, allowable_peak_gap=10):
+    def subtract_bandpass(self, window_length=151, poly_order=1, p0s=None, allowable_peak_gap=10):
         """
         Fit Gaussians to the specified lines, then subtract the coarse
         bandpass. Initial guesses for the Gaussian fits can (and should)
@@ -189,14 +203,10 @@ class Spectrum(object):
         mask = np.zeros(len(self.original))
 
         for i, p in enumerate(self.channel_peaks):
-            if p0s is None:
-                p0 = (self.original[p], p, 5)
-            else:
-                p0 = p0s[i]
-            width = p0[2]
+            width = self.peak_widths[i] * 1.2
 
             ## Blank the lines, fitting the bandpass around them.
-            blank_spectrum_part(mask, p, radius=width*width_factor, value=1)
+            blank_spectrum_part(mask, p, radius=width, value=1)
 
         self.filtered = copy.copy(self.original)
 
