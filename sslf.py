@@ -18,6 +18,7 @@ def find_background_rms(array, num_chunks=5, use_chunks=3):
     with the smallest RMS. Return the average of these as the true RMS.
     """
     chunks = np.array_split(array, num_chunks)
+    np.seterr(under="warn")
     sorted_by_rms = sorted([np.std(x) for x in chunks])
     return np.mean(sorted_by_rms[:use_chunks])
 
@@ -35,6 +36,7 @@ def mexican_hat(x, a, b, c):
     A convenience function to fit the Ricker wavelet ("mexican hat") shape
     independent of scipy's built-in wavelet.
     """
+    np.seterr(under="warn")
     hat = 2/(np.sqrt(3*c) * np.pi**(1/4.)) * (1 - (x-b)**2/c**2) * np.exp(-(x-b)**2/(2*c**2))
     return a * hat/max(hat)
 
@@ -122,7 +124,6 @@ class Spectrum(object):
             rms = find_background_rms(y)
 
             # Blank any existing peaks.
-            # fig, ax = plt.subplots(1, figsize=(20, 1))
             for p in peaks:
                 lower = p.channel+int(-scale*2)
                 upper = p.channel+int(scale*2)
@@ -133,21 +134,8 @@ class Spectrum(object):
                 peak = max(y[lower:upper])
                 peak_pos = find_nearest(y, peak)
 
-                # peak_snr = peak/rms
-                # if peak_snr > p.snr:
-                #     print "Updating peak", p.channel, "scale from", p.width, "to", scale, "snr from", p.snr, "to", peak_snr
-                #     print ""
-                #     # The peak found in this CWT is more significant than that found before. Update.
-                #     x_peak = find_nearest(y, peak)
-                #     p.channel = x_peak
-                #     p.snr = peak_snr
-                #     p.width = scale
-
                 # Replace the part of the spectrum containing the peak with zeros.
-                # ax.plot(y, c='b')
                 y -= mexican_hat(x, peak, peak_pos, scale)
-                # ax.plot(y, c='g')
-                # blank_spectrum_part(y, p.channel, radius=1.3*scale)
 
             rms = find_background_rms(y)
             while True:
@@ -156,11 +144,7 @@ class Spectrum(object):
                 # e.g. against the current i (scale length)
                 peak, sig = find_cwt_peak(y, snr=snr, rms=rms)
                 if peak is not None:
-                    # ax.plot(y, c='r')
-                    # ax.plot(mexican_hat(x, y[peak], peak, scale))
                     y -= mexican_hat(x, y[peak], peak, scale)
-                    # ax.plot(y)
-                    # blank_spectrum_part(y, peak, radius=1.3*scale)
                 else:
                     break
 
@@ -171,9 +155,6 @@ class Spectrum(object):
                                          atol=min_space, rtol=0)):
                     # Round the peak positions to integers.
                     peaks.append(Peak(np.rint(peak).astype(int), sig, scale))
-            # ax.plot(y, c='k')
-            # ax.set_xlim(0, len(y))
-            # plt.show()
 
         self.channel_peaks = [p.channel for p in peaks]
         self.peak_snrs = [p.snr for p in peaks]
@@ -216,14 +197,6 @@ class Spectrum(object):
             e1, e2 = edges[2*i], edges[2*i+1]
 
             if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
-                # import matplotlib.pyplot as plt
-                # plt.plot(self.original)
-                # plt.plot(mask)
-                # print self.channel_peaks
-                # plt.plot(filtered)
-                # plt.show()
-                print "Peak found within the edge of the spectrum - too lazy to account for this now, pull requests welcome."
-                # exit()
                 continue
             # Need a check for e2 being too close to the next e1.
 
