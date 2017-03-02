@@ -3,13 +3,8 @@
 import copy
 
 import numpy as np
-from scipy import optimize, signal
-
-# import matplotlib.pyplot as plt
-
-
-def find_nearest(np_array, value):
-    return np.abs(np_array - value).argmin()
+import numpy.ma as ma
+from scipy import signal
 
 
 def find_background_rms(array, num_chunks=5, use_chunks=3):
@@ -23,48 +18,9 @@ def find_background_rms(array, num_chunks=5, use_chunks=3):
     return np.mean(sorted_by_rms[:use_chunks])
 
 
-def gaussian(x, a, b, c):
-    """
-    The general form of a Gaussian (without a DC term),
-    for curve-fitting purposes.
-    """
-    return a * np.exp(-(x - b)**2 / (2 * c**2))
-
-
-def mexican_hat(x, a, b, c):
-    """
-    A convenience function to fit the Ricker wavelet ("mexican hat") shape
-    independent of scipy's built-in wavelet.
-    """
-    np.seterr(under="warn")
-    hat = 2/(np.sqrt(3*c) * np.pi**(1/4.)) * (1 - (x-b)**2/c**2) * np.exp(-(x-b)**2/(2*c**2))
-    return a * hat/max(hat)
-
-
-def find_cwt_peak(cwt_spec, snr=6.5, rms=None):
-    """
-    From a wavelet-domain spectrum (and an expected scale), find a peak
-    and return its fitted parameters.
-    """
-    y_peak = max(cwt_spec)
-    if rms is None:
-        rms = find_background_rms(cwt_spec)
-
-    # Is this maximum significant?
-    if y_peak/rms > snr:
-        x_peak = find_nearest(cwt_spec, y_peak)
-        return x_peak, y_peak/rms
-
-    return None, None
-
-
 def blank_spectrum_part(spectrum, point, radius, value=0):
-    lower = point+int(-radius)
-    upper = point+int(radius)
-    if lower < 0:
-        lower = 0
-    if upper > len(spectrum):
-        upper = len(spectrum)
+    lower = max([0, point+int(-radius)])
+    upper = min([len(spectrum), point+int(radius)])
     spectrum[lower:upper] = value
 
 
@@ -102,9 +58,7 @@ class Spectrum(object):
         """
         From the input spectrum (and a range of scales to search):
         - perform a CWT
-        - for each specified scale:
-        -- find a significant peak
-        -- subtract its contribution in the wavelet domain, continue searching for peaks
+        - 
         - return the list of peaks
 
         An SNR of 6.5 is a good compromise for reducing the number of false positives found
@@ -117,44 +71,28 @@ class Spectrum(object):
 
         peaks = []
         cwt_mat = signal.cwt(self.original, wavelet, scales)
+        cwt_mat = ma.array(cwt_mat)
+        spectrum_length = cwt_mat.shape[1]
 
-        for i, scale in enumerate(scales):
-            y = cwt_mat[i]
-            x = np.arange(len(y)).astype(np.float)
-            rms = find_background_rms(y)
+        while True:
+            peak_pixel = cwt_mat.argmax()
+            i, peak_channel = np.unravel_index(peak_pixel, cwt_mat.shape)
+            peak = cwt_mat[i, peak_channel]
+            rms = find_background_rms(cwt_mat[i])
+            sig = peak/rms
 
-            # Blank any existing peaks.
-            for p in peaks:
-                lower = p.channel+int(-scale*2)
-                upper = p.channel+int(scale*2)
-                if lower < 0:
-                    lower = 0
-                if upper > len(y):
-                    upper = len(y)
-                peak = max(y[lower:upper])
-                peak_pos = find_nearest(y, peak)
-
-                # Replace the part of the spectrum containing the peak with zeros.
-                y -= mexican_hat(x, peak, peak_pos, scale)
-
-            rms = find_background_rms(y)
-            while True:
-                # Find peaks.
-                # There should be checks on the returned parameters,
-                # e.g. against the current i (scale length)
-                peak, sig = find_cwt_peak(y, snr=snr, rms=rms)
-                if peak is not None:
-                    y -= mexican_hat(x, y[peak], peak, scale)
-                else:
-                    break
-
-                # Check if this peak has already been found.
-                # if not np.any(np.isclose([peak], [p.channel for p in peaks],
-                #                          atol=min_space, rtol=0)):
-                if not np.any(np.isclose([peak], [p.channel for p in peaks] + [0, len(y)],
-                                         atol=min_space, rtol=0)):
-                    # Round the peak positions to integers.
-                    peaks.append(Peak(np.rint(peak).astype(int), sig, scale))
+            # If this maximum is not significant, we're done.
+            if sig < snr:
+                break
+            # Otherwise, blank this line across all scales.
+            else:
+                for k in xrange(len(scales)):
+                    # If the line is too close to the edge,
+                    # cap the mask at the edge.
+                    lower = max([0, peak_channel - 2*scales[k]])
+                    upper = min([spectrum_length, peak_channel + 2*scales[k]])
+                    cwt_mat[k, lower:upper] = ma.masked
+                peaks.append(Peak(peak_channel, sig, scales[i]))
 
         self.channel_peaks = [p.channel for p in peaks]
         self.peak_snrs = [p.snr for p in peaks]
@@ -166,7 +104,7 @@ class Spectrum(object):
     def vel_peaks2chan_peaks(self):
         """
         This function is useful for when you know the velocities of the spectral lines,
-        and need to determined the relevant channels before subtracting the bandpass.
+        and need to determine the relevant channels before subtracting the bandpass.
         """
         self.channel_peaks = []
         for vp in self.vel_peaks:
@@ -175,12 +113,7 @@ class Spectrum(object):
 
     def subtract_bandpass(self, window_length=151, poly_order=1, p0s=None, allowable_peak_gap=10):
         """
-        Fit Gaussians to the specified lines, then subtract the coarse
-        bandpass. Initial guesses for the Gaussian fits can (and should)
-        be supplied; otherwise, you perform a Hail Mary to scipy.
         """
-        self.bandpass = copy.copy(self.original)
-
         mask = np.zeros(len(self.original))
 
         for i, p in enumerate(self.channel_peaks):
