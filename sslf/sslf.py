@@ -1,4 +1,10 @@
-#!/usr/bin/env python2
+"""
+The main module of sslf (simple spectral line finder).
+The provided Spectrum class is intended to facilitate all functionality.
+"""
+
+# Python 2 and 3 compatibility
+from builtins import range
 
 import copy
 
@@ -18,13 +24,13 @@ def find_background_rms(array, num_chunks=5, use_chunks=3):
     return np.mean(sorted_by_rms[:use_chunks])
 
 
-def blank_spectrum_part(spectrum, point, radius, value=0):
+def _blank_spectrum_part(spectrum, point, radius, value=0):
     lower = max([0, point+int(-radius)])
     upper = min([len(spectrum), point+int(radius)])
     spectrum[lower:upper] = value
 
 
-class Peak(object):
+class _Peak(object):
     def __init__(self, channel, snr, width):
         self.channel = channel
         self.snr = snr
@@ -33,6 +39,13 @@ class Peak(object):
 
 class Spectrum(object):
     def __init__(self, spectrum, vel=None):
+        """
+        Provide a spectrum to find lines on, and/or remove the bandpass from.
+        The optional vel parameter essentially provides an "x-axis" to the
+        data, such that peak positions can be determined in terms of this
+        axis rather than merely the channel position in the spectrum.
+        Note that any NaN values in the spectrum are filtered.
+        """
         # Make sure the data are in numpy arrays.
         if isinstance(spectrum, list):
             spectrum = np.array(spectrum)
@@ -54,17 +67,19 @@ class Spectrum(object):
         self.rms = find_background_rms(spectrum)
 
 
-    def find_cwt_peaks(self, scales=[], snr=6.5, min_space=5, wavelet=signal.ricker):
+    def find_cwt_peaks(self, scales=[], snr=6.5, wavelet=signal.ricker):
         """
         From the input spectrum (and a range of scales to search):
         - perform a CWT
-        - 
+        - find a significant peak in the CWT matrix
+        - mask this peak in wavelet space, for all scales
+        - loop from step 2, until no significant peaks remain
         - return the list of peaks
 
-        An SNR of 6.5 is a good compromise for reducing the number of false positives found
-        while reliably finding real, significant peaks.
+        In my experience, an SNR of 6.5 is a good compromise for reducing the number
+        of false positives found while reliably finding real, significant peaks.
 
-        It may be worthwhile to be in some smoothing for every element of cwt_mat.
+        It may be worthwhile to smooth the spectrum before performing the CWT.
         """
 
         assert len(scales) > 0, "No scales supplied!"
@@ -86,13 +101,13 @@ class Spectrum(object):
                 break
             # Otherwise, blank this line across all scales.
             else:
-                for k in xrange(len(scales)):
+                for k in range(len(scales)):
                     # If the line is too close to the edge,
                     # cap the mask at the edge.
                     lower = max([0, peak_channel - 2*scales[k]])
                     upper = min([spectrum_length, peak_channel + 2*scales[k]])
                     cwt_mat[k, lower:upper] = ma.masked
-                peaks.append(Peak(peak_channel, sig, scales[i]))
+                peaks.append(_Peak(peak_channel, sig, scales[i]))
 
         self.channel_peaks = [p.channel for p in peaks]
         self.peak_snrs = [p.snr for p in peaks]
@@ -111,22 +126,38 @@ class Spectrum(object):
             self.channel_peaks.append(np.abs(self.vel-vp).argmin())
 
 
-    def subtract_bandpass(self, window_length=151, poly_order=1, p0s=None, allowable_peak_gap=10):
+    def subtract_bandpass(self, window_length=151, poly_order=1, allowable_peak_gap=10):
         """
+        Once we have the locations of the lines, flag them, and subtract the non-zero
+        bandpass everywhere else. Provide the flattened spectrum in self.modified.
+
+        window_length and poly_order feed directly into scipy's savgol_filter, which
+        forms the bulk of the work in this function. See that function's documentation
+        for more information.
+
+        window_length is probably the most important parameter, and will need to be
+        tuned for different spectra. In a sense, it specifies how far to look ahead
+        and behind every channel when considering bandpass shape. If this is too small,
+        it will behave more like a low-pass filter than a high-pass filter, when we
+        want it to be more on the high-pass side.
+
+        poly_order...
+
+        allowable_peak_gap...
         """
         mask = np.zeros(len(self.original))
 
         for i, p in enumerate(self.channel_peaks):
-            width = self.peak_widths[i] * 1.2
+            width = self.peak_widths[i] * 1.4
 
-            ## Blank the lines, fitting the bandpass around them.
-            blank_spectrum_part(mask, p, radius=width, value=1)
+            # Blank the lines, fitting the bandpass around them.
+            _blank_spectrum_part(mask, p, radius=width, value=1)
 
         self.filtered = copy.copy(self.original)
 
         # Interpolate between gaps in the spectrum.
         edges = np.where(np.diff(mask))[0]
-        for i in xrange(len(edges)/2):
+        for i in range(len(edges)//2):
             e1, e2 = edges[2*i], edges[2*i+1]
 
             if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
