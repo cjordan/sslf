@@ -9,7 +9,7 @@ Because there are many definitions for a spectral line, this package can not con
 
 Usage
 -----
-With a 1D spectrum (``spectral_data``) and a range of scales to test (e.g. 1 through 20), statistically significant spectral peaks can be found with:
+With a 1D spectrum (``spectral_data``) and a range of scales to test (e.g. 1 through 20), statistically significant spectral peaks can be found with::
 
     from sslf.sslf import Spectrum
 
@@ -39,6 +39,8 @@ christopherjordan87 -at- gmail.com
 
 Installation
 ------------
+::
+
     pip install sslf
 
 or
