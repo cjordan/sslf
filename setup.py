@@ -1,16 +1,27 @@
 from setuptools import setup
-
+from codecs import open
+from os import path
 import re
 
-def version_number():
-    with open("sslf/__init__.py") as f:
-        contents = f.read()
-        return re.search(r"__version__ = \"(\S+)\"", contents).group(1)
+
+here = path.abspath(path.dirname(__file__))
+with open(path.join(here, "sslf/__init__.py")) as f:
+    contents = f.read()
+    version_number = re.search(r"__version__ = \"(\S+)\"", contents).group(1)
+
+with open(path.join(here, "README.rst"), encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(name="sslf",
-      version=version_number(),
-      packages=["sslf"],
-      install_requires=["numpy", "scipy"],
+      version=version_number,
+      description="A simple spectral line finder",
+      long_description=long_description,
+      url="https://github.com/cjordan/sslf",
+      author="Christopher Jordan",
+      author_email="christopherjordan87@gmail.com",
       license="MIT",
-      long_description=open("README.md").read(),
+      keywords="signal processing",
+      # packages=[path.join(here, "src")],
+      packages=["sslf"],
+      install_requires=["numpy>=1.8.0", "scipy"],
 )
