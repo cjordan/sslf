@@ -21,7 +21,6 @@ setup(name="sslf",
       author_email="christopherjordan87@gmail.com",
       license="MIT",
       keywords="signal processing",
-      # packages=[path.join(here, "src")],
       packages=["sslf"],
       install_requires=["numpy>=1.8.0", "scipy"],
 )
