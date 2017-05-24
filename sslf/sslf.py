@@ -126,7 +126,7 @@ class Spectrum(object):
             self.channel_peaks.append(np.abs(self.vel-vp).argmin())
 
 
-    def subtract_bandpass(self, window_length=151, poly_order=1, allowable_peak_gap=10):
+    def subtract_bandpass(self, window_length=151, poly_order=1, blank_spectrum_width=1.4, allowable_peak_gap=10):
         """
         Once we have the locations of the lines, flag them, and subtract the non-zero
         bandpass everywhere else. Provide the flattened spectrum in self.modified.
@@ -144,11 +144,13 @@ class Spectrum(object):
         poly_order...
 
         allowable_peak_gap...
+
+        blank_spectrum_width...
         """
         mask = np.zeros(len(self.original))
 
         for i, p in enumerate(self.channel_peaks):
-            width = self.peak_widths[i] * 1.4
+            width = self.peak_widths[i] * blank_spectrum_width
 
             # Blank the lines, fitting the bandpass around them.
             _blank_spectrum_part(mask, p, radius=width, value=1)
