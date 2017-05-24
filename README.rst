@@ -15,9 +15,9 @@ With a 1D spectrum (``spectral_data``) and a range of scales to test (e.g. 1 thr
 
     s = Spectrum(spectral_data)
     s.find_cwt_peaks(scales=np.arange(20), snr=6.5)
-    a.subtract_bandpass()
+    s.subtract_bandpass()
 
-The flattened spectrum is then contained in ``a.modified``, and peak locations at ``a.channel_peaks``.
+The flattened spectrum is then contained in ``s.modified``, and peak locations at ``s.channel_peaks``.
 
 ``find_cwt_peaks`` can optionally take the wavelet to be used in the wavelet transformation (Ricker wavelet by default). ``subtract_bandpass`` is a little harder to explain; see more complicated examples of usage can be found in the ``notebooks`` directory.
 
