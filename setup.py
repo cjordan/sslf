@@ -22,5 +22,5 @@ setup(name="sslf",
       license="MIT",
       keywords="signal processing",
       packages=["sslf"],
-      install_requires=["numpy>=1.8.0", "scipy"],
+      install_requires=["numpy>=1.8.0", "scipy", "future"],
 )

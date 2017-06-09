@@ -53,3 +53,4 @@ Dependencies
 - python 2.7.x or 3.x
 - numpy 1.8+
 - scipy
+- future
