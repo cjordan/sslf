@@ -105,15 +105,15 @@ class Spectrum(object):
             peak = cwt_mat[i, peak_channel]
             rms = find_background_rms(cwt_mat[i])
             sig = peak/rms
-            if logger.isEnabledFor(logging.INFO):
-                logger.info("Biggest peak at channel %s, scale %s" % (peak_channel, scales[i]))
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("rms = %s" % rms)
+                logger.debug("Biggest peak at channel %s, scale %s" % (peak_channel, scales[i]))
+            if logger.isEnabledFor(logging.NOTSET):
+                logger.notset("rms = %s" % rms)
 
             # If this maximum is not significant, we're done.
             if sig < snr:
-                if logger.isEnabledFor(logging.INFO):
-                    logger.info("Peak is not significant (%s < %s), finishing" % (sig, snr))
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("Peak is not significant (%s < %s), finishing" % (sig, snr))
                 break
             # Otherwise, blank this line across all scales.
             else:
@@ -122,8 +122,8 @@ class Spectrum(object):
                     # cap the mask at the edge.
                     lower = max([0, peak_channel - 2*scales[k]])
                     upper = min([spectrum_length, peak_channel + 2*scales[k]])
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug("lower = %s, upper = %s" % (lower, upper))
+                    if logger.isEnabledFor(logging.NOTSET):
+                        logger.notset("lower = %s, upper = %s" % (lower, upper))
                     cwt_mat[k, lower:upper] = ma.masked
                 peaks.append(_Peak(peak_channel, sig, scales[i]))
 
@@ -132,12 +132,12 @@ class Spectrum(object):
         self.peak_widths = [p.width for p in peaks]
         if self.vel is not None:
             self.vel_peaks = [self.vel[p.channel] for p in peaks]
-        if logger.isEnabledFor(logging.INFO):
-            logger.info("Channel peaks: %s" % self.channel_peaks)
-            logger.info("Peak SNRs: %s" % self.peak_snrs)
-            logger.info("Peak widths: %s" % self.peak_widths)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Channel peaks: %s" % self.channel_peaks)
+            logger.debug("Peak SNRs: %s" % self.peak_snrs)
+            logger.debug("Peak widths: %s" % self.peak_widths)
             if self.vel is not None:
-                logger.info("Velocity peaks: %s" % self.vel_peaks)
+                logger.debug("Velocity peaks: %s" % self.vel_peaks)
 
 
     def vel_peaks2chan_peaks(self):
@@ -148,8 +148,8 @@ class Spectrum(object):
         self.channel_peaks = []
         for vp in self.vel_peaks:
             self.channel_peaks.append(np.abs(self.vel-vp).argmin())
-        if logger.isEnabledFor(logging.INFO):
-            logger.info("Channel peaks: %s" % self.channel_peaks)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Channel peaks: %s" % self.channel_peaks)
 
 
     def subtract_bandpass(self, window_length=151, poly_order=1, blank_spectrum_width=1.4, allowable_peak_gap=10):
@@ -187,12 +187,12 @@ class Spectrum(object):
         edges = np.where(np.diff(mask))[0]
         for i in range(len(edges)//2):
             e1, e2 = edges[2*i], edges[2*i+1]
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Interpolation edges: %s, %s" % (e1, e2))
+            if logger.isEnabledFor(logging.NOTSET):
+                logger.notset("Interpolation edges: %s, %s" % (e1, e2))
 
             if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("Interpolation edges are too close")
+                if logger.isEnabledFor(logging.NOTSET):
+                    logger.notset("Interpolation edges are too close")
                 continue
             # Need a check for e2 being too close to the next e1.
 
