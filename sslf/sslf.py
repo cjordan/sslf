@@ -5,6 +5,7 @@ The provided Spectrum class is intended to facilitate all functionality.
 
 # Python 2 and 3 compatibility
 from builtins import range
+from future.utils import raise_with_traceback
 
 import copy
 import logging
@@ -27,7 +28,10 @@ def find_background_rms(array, num_chunks=5, use_chunks=3):
     sorted_by_rms = sorted([np.std(x) for x in chunks])
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("rms chunks = %s" % sorted_by_rms)
-    return np.mean(sorted_by_rms[:use_chunks])
+    mean = np.mean(sorted_by_rms[:use_chunks])
+    if mean == 0:
+        raise_with_traceback(ValueError("RMS is 0, which cannot be used."))
+    return mean
 
 
 def _blank_spectrum_part(spectrum, point, radius, value=0):
