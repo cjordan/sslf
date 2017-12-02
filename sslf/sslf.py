@@ -60,7 +60,7 @@ class Spectrum(object):
         if isinstance(spectrum, list):
             spectrum = np.array(spectrum)
         if isinstance(vel, list):
-            spectrum = np.array(vel)
+            vel = np.array(vel)
 
         # Filter any NaNs, scipy doesn't like them.
         if np.any(np.isnan(spectrum)):
