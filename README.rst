@@ -1,5 +1,9 @@
 sslf
 ====
+.. image:: https://travis-ci.org/cjordan/sslf.svg?branch=master
+   :target: https://travis-ci.org/cjordan/sslf
+.. image:: https://coveralls.io/repos/github/cjordan/sslf/badge.svg?branch=master
+   :target: https://coveralls.io/github/cjordan/sslf?branch=master
 
 Simple Spectral Line Finder
 
