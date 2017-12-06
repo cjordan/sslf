@@ -154,25 +154,37 @@ class Spectrum(object):
 
     def subtract_bandpass(self, window_length=151, poly_order=1, blank_spectrum_width=1.4, allowable_peak_gap=10):
         """
-        Once we have the locations of the lines, flag them, and subtract the non-zero
-        bandpass everywhere else. Provide the flattened spectrum in self.modified.
+        Flag the locations of any lines, and subtract the non-zero bandpass
+        everywhere else. Provide the flattened spectrum in self.modified.
 
-        window_length and poly_order feed directly into scipy's savgol_filter, which
-        forms the bulk of the work in this function. See that function's documentation
-        for more information.
+        Parameters
+        ----------
+        window_length : int, optional
+            The window_length to be used in scipy's savgol_filter. This should
+            be bigger than the expected width of any spectral lines, but not
+            so big that it is comparable to the length of the spectrum. In a
+            sense, it specifies how far to look ahead and behind every channel
+            when considering bandpass shape. If this is too small, it will
+            behave more like a low-pass filter than a high-pass filter, when we
+            probably want it to be more on the high-pass side.
 
-        window_length is probably the most important parameter, and will need to be
-        tuned for different spectra. In a sense, it specifies how far to look ahead
-        and behind every channel when considering bandpass shape. If this is too small,
-        it will behave more like a low-pass filter than a high-pass filter, when we
-        want it to be more on the high-pass side.
+        poly_order : int, optional
+            The order of the polynomial fitting to be done over the spectral
+            lines and with the savgol_filter. 1 (linear) is generally sensible,
+            especially as higher orders are susceptible to Runge's phenomenon.
 
-        poly_order...
+        blank_spectrum_width : float, optional
+            The amount of spectrum to filter on either side of a detected
+            spectral line. This is in an effort to preserve real signal
+            associated with the spectral line that is buried in the noise.
 
-        allowable_peak_gap...
-
-        blank_spectrum_width...
+        allowable_peak_gap : int, optional
+            The minimum number of channels between any two spectral lines before
+            sslf considers them to be the same for the purposes of filtering.
+            This avoids using noisy channels between lines for interpolation,
+            and getting a poor subtraction.
         """
+
         mask = np.zeros(len(self.original))
 
         for i, p in enumerate(self.channel_peaks):
@@ -183,8 +195,16 @@ class Spectrum(object):
 
         self.filtered = copy.copy(self.original)
 
+        # Find where lines start and end.
+        edges = []
+        if mask[0] == 1:
+            edges.append(0)
+        for e in np.where(np.diff(mask))[0]:
+            edges.append(e)
+        if mask[-1] == 1:
+            edges.append(len(mask)-1)
+
         # Interpolate between gaps in the spectrum.
-        edges = np.where(np.diff(mask))[0]
         for i in range(len(edges)//2):
             e1, e2 = edges[2*i], edges[2*i+1]
             if logger.isEnabledFor(logging.NOTSET):
@@ -198,9 +218,23 @@ class Spectrum(object):
 
             range_1 = np.arange(e1-allowable_peak_gap, e1)
             range_2 = np.arange(e2, e2+allowable_peak_gap)
-            interp_range = np.concatenate((range_1, range_2))
-            poly_fit = np.poly1d(np.polyfit(interp_range, self.filtered[interp_range], poly_order))
+
+            if np.any(range_1 <= 0):
+                interp_range = [0] + range_2.tolist()
+                values = [0] + self.filtered[range_2].tolist()
+                poly_fit = np.poly1d(np.polyfit(interp_range, values, poly_order))
+            elif np.any(range_2 >= len(mask)-1):
+                interp_range = range_1.tolist() + [len(mask)-1]
+                values = self.filtered[range_1].tolist() + [0]
+                poly_fit = np.poly1d(np.polyfit(interp_range, values, poly_order))
+            else:
+                interp_range = range_1.tolist() + range_2.tolist()
+                poly_fit = np.poly1d(np.polyfit(interp_range,
+                                                self.filtered[interp_range],
+                                                poly_order))
             self.filtered[e1:e2] = poly_fit(np.arange(e1, e2))
 
-        self.bandpass = signal.savgol_filter(self.filtered, window_length=window_length, polyorder=poly_order)
+        self.bandpass = signal.savgol_filter(self.filtered,
+                                             window_length=window_length,
+                                             polyorder=poly_order)
         self.modified = self.original - self.bandpass
