@@ -4,6 +4,8 @@ sslf
    :target: https://travis-ci.org/cjordan/sslf
 .. image:: https://coveralls.io/repos/github/cjordan/sslf/badge.svg?branch=master
    :target: https://coveralls.io/github/cjordan/sslf?branch=master
+.. image:: https://api.codacy.com/project/badge/Grade/84eaced156f94ccfa9e18ee4c1a28c85
+   :target: https://www.codacy.com/app/cjordan/sslf?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cjordan/sslf&amp;utm_campaign=Badge_Grade
 
 Simple Spectral Line Finder
 
