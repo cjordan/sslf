@@ -182,7 +182,7 @@ class Spectrum(object):
             The minimum number of channels between any two spectral lines before
             sslf considers them to be the same for the purposes of filtering.
             This avoids using noisy channels between lines for interpolation,
-            and getting a poor subtraction.
+            and getting a poor subtraction. Currently disabled.
         """
 
         mask = np.zeros(len(self.original))
@@ -210,11 +210,11 @@ class Spectrum(object):
             if logger.isEnabledFor(logging.NOTSET):
                 logger.notset("Interpolation edges: %s, %s" % (e1, e2))
 
-            if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
-                if logger.isEnabledFor(logging.NOTSET):
-                    logger.notset("Interpolation edges are too close")
-                continue
-            # Need a check for e2 being too close to the next e1.
+            # if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
+            #     if logger.isEnabledFor(logging.NOTSET):
+            #         logger.notset("Interpolation edges are too close")
+            #     continue
+            # # Need a check for e2 being too close to the next e1.
 
             range_1 = np.arange(e1-allowable_peak_gap, e1)
             range_2 = np.arange(e2, e2+allowable_peak_gap)
