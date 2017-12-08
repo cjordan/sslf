@@ -4,7 +4,7 @@ The provided Spectrum class is intended to facilitate all functionality.
 """
 
 # Python 2 and 3 compatibility
-from builtins import range
+from future.builtins import range
 from future.utils import raise_with_traceback
 
 import copy
@@ -77,7 +77,7 @@ class Spectrum(object):
         self.rms = find_background_rms(spectrum)
 
 
-    def find_cwt_peaks(self, scales=[], snr=6.5, wavelet=signal.ricker):
+    def find_cwt_peaks(self, scales, snr=6.5, wavelet=signal.ricker):
         """
         From the input spectrum (and a range of scales to search):
         - perform a CWT
@@ -91,8 +91,6 @@ class Spectrum(object):
 
         It may be worthwhile to smooth the spectrum before performing the CWT.
         """
-
-        assert len(scales) > 0, "No scales supplied!"
 
         peaks = []
         cwt_mat = signal.cwt(self.original, wavelet, scales)
@@ -117,14 +115,14 @@ class Spectrum(object):
                 break
             # Otherwise, blank this line across all scales.
             else:
-                for k in range(len(scales)):
+                for j, s in enumerate(scales):
                     # If the line is too close to the edge,
                     # cap the mask at the edge.
-                    lower = max([0, peak_channel - 2*scales[k]])
-                    upper = min([spectrum_length, peak_channel + 2*scales[k]])
+                    lower = max([0, peak_channel - 2*s])
+                    upper = min([spectrum_length, peak_channel + 2*s])
                     if logger.isEnabledFor(logging.NOTSET):
                         logger.notset("lower = %s, upper = %s" % (lower, upper))
-                    cwt_mat[k, lower:upper] = ma.masked
+                    cwt_mat[j, lower:upper] = ma.masked
                 peaks.append(_Peak(peak_channel, sig, scales[i]))
 
         self.channel_peaks = [p.channel for p in peaks]
