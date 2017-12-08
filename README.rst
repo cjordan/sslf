@@ -17,10 +17,11 @@ Usage
 -----
 With a 1D spectrum (``spectral_data``) and a range of scales to test (e.g. 1 through 20), statistically significant spectral peaks can be found with::
 
+    import numpy as np
     from sslf.sslf import Spectrum
 
     s = Spectrum(spectral_data)
-    s.find_cwt_peaks(scales=np.arange(20), snr=6.5)
+    s.find_cwt_peaks(scales=np.arange(1, 20), snr=6.5)
     s.subtract_bandpass()
 
 The flattened spectrum is then contained in ``s.modified``, and peak locations at ``s.channel_peaks``.
