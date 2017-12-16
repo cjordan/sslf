@@ -104,14 +104,13 @@ class Spectrum(object):
             rms = find_background_rms(cwt_mat[i])
             sig = peak/rms
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Biggest peak at channel %s, scale %s" % (peak_channel, scales[i]))
-            if logger.isEnabledFor(logging.NOTSET):
-                logger.notset("rms = %s" % rms)
+                logger.debug("Biggest peak at channel %s, scale %s, rms = %s" %
+                             (peak_channel, scales[i], rms))
 
             # If this maximum is not significant, we're done.
             if sig < snr:
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("Peak is not significant (%s < %s), finishing" % (sig, snr))
+                    logger.debug("Peak is not significant (%s < %s); finishing" % (sig, snr))
                 break
             # Otherwise, blank this line across all scales.
             else:
@@ -120,8 +119,8 @@ class Spectrum(object):
                     # cap the mask at the edge.
                     lower = max([0, peak_channel - 2*s])
                     upper = min([spectrum_length, peak_channel + 2*s])
-                    if logger.isEnabledFor(logging.NOTSET):
-                        logger.notset("lower = %s, upper = %s" % (lower, upper))
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Blanked channels %s to %s" % (lower, upper))
                     cwt_mat[j, lower:upper] = ma.masked
                 peaks.append(_Peak(peak_channel, sig, scales[i]))
 
@@ -205,12 +204,12 @@ class Spectrum(object):
         # Interpolate between gaps in the spectrum.
         for i in range(len(edges)//2):
             e1, e2 = edges[2*i], edges[2*i+1]
-            if logger.isEnabledFor(logging.NOTSET):
-                logger.notset("Interpolation edges: %s, %s" % (e1, e2))
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Interpolation edges: %s, %s" % (e1, e2))
 
             # if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
-            #     if logger.isEnabledFor(logging.NOTSET):
-            #         logger.notset("Interpolation edges are too close")
+            #     if logger.isEnabledFor(logging.DEBUG):
+            #         logger.debug("Interpolation edges are too close")
             #     continue
             # # Need a check for e2 being too close to the next e1.
 
