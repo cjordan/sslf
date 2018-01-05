@@ -24,8 +24,11 @@ def find_background_rms(array, num_chunks=5, use_chunks=3):
     with the smallest RMS. Return the average of these as the true RMS.
     """
     chunks = np.array_split(array, num_chunks)
-    np.seterr(under="warn")
-    sorted_by_rms = sorted([np.std(x) for x in chunks])
+    # The following requires np.errstate, because numpy.ma apparently throws
+    # floating point errors erroneously.
+    # https://github.com/numpy/numpy/issues/4895
+    with np.errstate(under="ignore"):
+        sorted_by_rms = sorted([np.std(x) for x in chunks])
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("rms chunks = %s" % sorted_by_rms)
     mean = np.mean(sorted_by_rms[:use_chunks])
