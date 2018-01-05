@@ -120,7 +120,8 @@ class Spectrum(object):
                     lower = max([0, peak_channel - 2*s])
                     upper = min([spectrum_length, peak_channel + 2*s])
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug("Blanked channels %s to %s" % (lower, upper))
+                        logger.debug("Blanked channels %s to %s (scale = %s)" %
+                                     (lower, upper, s))
                     cwt_mat[j, lower:upper] = ma.masked
                 peaks.append(_Peak(peak_channel, sig, scales[i]))
 
