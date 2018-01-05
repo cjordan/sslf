@@ -20,9 +20,22 @@ logger = logging.getLogger(__name__)
 
 def find_background_rms(array, num_chunks=5, use_chunks=3):
     """
-    Break the input array into evenly sized chunks, then find the three
-    with the smallest RMS. Return the average of these as the true RMS.
+    In order to obtain a better estimate of a spectrum's RMS, break the input
+    array into evenly sized chunks (or as even as possible), sort the chunks
+    by RMS, then return the average of some of these chunks as the true RMS.
+
+    Parameters
+    ----------
+    array : ndarray
+        The 1-dimensional spectrum we wish to determine the RMS for.
+
+    num_chunks : int, optional
+        Split `array` into this many chunks for RMS calculation.
+
+    use_chunks : int, optional
+        Use this many chunks from `array` for RMS calculation.
     """
+
     chunks = np.array_split(array, num_chunks)
     # The following requires np.errstate, because numpy.ma apparently throws
     # floating point errors erroneously.
