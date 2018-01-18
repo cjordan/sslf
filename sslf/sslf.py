@@ -26,7 +26,7 @@ def find_background_rms(array, num_chunks, use_chunks):
 
     Parameters
     ----------
-    array : ndarray
+    array : array_like
         The 1-dimensional spectrum we wish to determine the RMS for.
 
     num_chunks : int, optional
@@ -71,7 +71,26 @@ class Spectrum(object):
         data, such that peak positions can be determined in terms of this
         axis rather than merely the channel position in the spectrum.
         Note that any NaN values in the spectrum are filtered.
+
+        Parameters
+        ----------
+        spectrum : array_like
+            The 1-dimensional spectrum we will performing line-finding on.
+
+        vel : array_like, optional
+            Supply an equally-sized array to `spectrum` to have `sslf` report
+            the velocities (or some other arbitrary interpretation of the x-axis
+            of `spectrum`) of found lines.
+
+        num_chunks : int, optional
+            When calculating the RMS of `spectrum`, break `spectrum` into
+            equally-sized chunks according to `num_chunks`.
+
+        use_chunks : int, optional
+            When calculating the RMS of `spectrum`, use this many equally-sized
+            chunks from when `spectrum` was split according to `num_chunks`.
         """
+
         # Make sure the data are in numpy arrays.
         if isinstance(spectrum, list):
             spectrum = np.array(spectrum)
@@ -97,7 +116,7 @@ class Spectrum(object):
                        num_chunks=5, use_chunks=3):
         """
         From the input spectrum (and a range of scales to search):
-        - perform a CWT
+        - perform a continuous wavelet transformation (CWT)
         - find a significant peak in the CWT matrix
         - mask this peak in wavelet space, for all scales
         - loop from step 2, until no significant peaks remain
@@ -107,6 +126,28 @@ class Spectrum(object):
         of false positives found while reliably finding real, significant peaks.
 
         It may be worthwhile to smooth the spectrum before performing the CWT.
+
+        Parameters
+        ----------
+        scales : array_like
+            The channel-widths to use when performing the CWT, and thus the
+            channel-widths we use when searching for spectral lines.
+
+        snr : float, optional
+            The significance threshold of any found spectral line.
+
+        wavelet : function
+            The wavelet to use when performing the CWT. The wavelet used should
+            have a similar profile to any spectral lines that are being
+            searched.
+
+        num_chunks : int, optional
+            When calculating the RMS of `spectrum`, break `spectrum` into
+            equally-sized chunks according to `num_chunks`.
+
+        use_chunks : int, optional
+            When calculating the RMS of `spectrum`, use this many equally-sized
+            chunks from when `spectrum` was split according to `num_chunks`.
         """
 
         peaks = []
