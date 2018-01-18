@@ -18,7 +18,7 @@ from scipy import signal
 logger = logging.getLogger(__name__)
 
 
-def find_background_rms(array, num_chunks=5, use_chunks=3):
+def find_background_rms(array, num_chunks, use_chunks):
     """
     In order to obtain a better estimate of a spectrum's RMS, break the input
     array into evenly sized chunks (or as even as possible), sort the chunks
@@ -64,7 +64,7 @@ class _Peak(object):
 
 
 class Spectrum(object):
-    def __init__(self, spectrum, vel=None):
+    def __init__(self, spectrum, vel=None, num_chunks=5, use_chunks=3):
         """
         Provide a spectrum to find lines on, and/or remove the bandpass from.
         The optional vel parameter essentially provides an "x-axis" to the
@@ -90,10 +90,11 @@ class Spectrum(object):
             self.original = spectrum
             self.vel = vel
 
-        self.rms = find_background_rms(spectrum)
+        self.rms = find_background_rms(spectrum, num_chunks=num_chunks, use_chunks=use_chunks)
 
 
-    def find_cwt_peaks(self, scales, snr=6.5, wavelet=signal.ricker):
+    def find_cwt_peaks(self, scales, snr=6.5, wavelet=signal.ricker,
+                       num_chunks=5, use_chunks=3):
         """
         From the input spectrum (and a range of scales to search):
         - perform a CWT
@@ -117,7 +118,7 @@ class Spectrum(object):
             peak_pixel = cwt_mat.argmax()
             i, peak_channel = np.unravel_index(peak_pixel, cwt_mat.shape)
             peak = cwt_mat[i, peak_channel]
-            rms = find_background_rms(cwt_mat[i])
+            rms = find_background_rms(cwt_mat[i], num_chunks=num_chunks, use_chunks=use_chunks)
             sig = peak/rms
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug("Biggest peak at channel %s, scale %s, rms = %s" %
