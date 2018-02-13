@@ -37,10 +37,13 @@ def find_background_rms(array, num_chunks, use_chunks):
     """
 
     chunks = np.array_split(array, num_chunks)
-    # The following requires np.errstate, because numpy.ma apparently throws
-    # floating point errors erroneously.
-    # https://github.com/numpy/numpy/issues/4895
-    with np.errstate(under="ignore"):
+    if isinstance(array, ma.core.MaskedArray):
+        # The following requires np.errstate, because numpy.ma apparently throws
+        # floating point errors erroneously.
+        # https://github.com/numpy/numpy/issues/4895
+        with np.errstate(under="ignore"):
+            sorted_by_rms = sorted([np.std(x.data) for x in chunks])
+    else:
         sorted_by_rms = sorted([np.std(x) for x in chunks])
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("rms chunks = %s" % sorted_by_rms)
