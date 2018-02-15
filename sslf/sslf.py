@@ -46,7 +46,7 @@ def find_background_rms(array, num_chunks, use_chunks):
     else:
         sorted_by_rms = sorted([np.std(x) for x in chunks])
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("rms chunks = %s" % sorted_by_rms)
+        logger.debug("rms chunks = %s", sorted_by_rms)
     mean = np.mean(sorted_by_rms[:use_chunks])
     if mean == 0:
         raise_with_traceback(ValueError("RMS is 0, which cannot be used."))
@@ -165,13 +165,13 @@ class Spectrum(object):
             rms = find_background_rms(cwt_mat[i], num_chunks=num_chunks, use_chunks=use_chunks)
             sig = peak/rms
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Biggest peak at channel %s, scale %s, rms = %s" %
-                             (peak_channel, scales[i], rms))
+                logger.debug("Biggest peak at channel %s, scale %s, rms = %s",
+                             peak_channel, scales[i], rms)
 
             # If this maximum is not significant, we're done.
             if sig < snr:
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("Peak is not significant (%s < %s); finishing" % (sig, snr))
+                    logger.debug("Peak is not significant (%s < %s); finishing", sig, snr)
                 break
             # Otherwise, blank this line across all scales.
             else:
@@ -181,8 +181,8 @@ class Spectrum(object):
                     lower = max([0, peak_channel - 2*s])
                     upper = min([spectrum_length, peak_channel + 2*s])
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug("Blanked channels %s to %s (scale = %s)" %
-                                     (lower, upper, s))
+                        logger.debug("Blanked channels %s to %s (scale = %s)",
+                                     lower, upper, s)
                     cwt_mat[j, lower:upper] = ma.masked
                 peaks.append(_Peak(peak_channel, sig, scales[i]))
 
@@ -192,11 +192,11 @@ class Spectrum(object):
         if self.vel is not None:
             self.vel_peaks = [self.vel[p.channel] for p in peaks]
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Channel peaks: %s" % self.channel_peaks)
-            logger.debug("Peak SNRs: %s" % self.peak_snrs)
-            logger.debug("Peak widths: %s" % self.peak_widths)
+            logger.debug("Channel peaks: %s", self.channel_peaks)
+            logger.debug("Peak SNRs: %s", self.peak_snrs)
+            logger.debug("Peak widths: %s", self.peak_widths)
             if self.vel is not None:
-                logger.debug("Velocity peaks: %s" % self.vel_peaks)
+                logger.debug("Velocity peaks: %s", self.vel_peaks)
 
 
     def vel_peaks2chan_peaks(self):
@@ -208,10 +208,14 @@ class Spectrum(object):
         for vp in self.vel_peaks:
             self.channel_peaks.append(np.abs(self.vel-vp).argmin())
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Channel peaks: %s" % self.channel_peaks)
+            logger.debug("Channel peaks: %s", self.channel_peaks)
 
 
-    def subtract_bandpass(self, window_length=151, poly_order=1, blank_spectrum_width=1.4, allowable_peak_gap=10):
+    def subtract_bandpass(self,
+                          window_length=151,
+                          poly_order=1,
+                          blank_spectrum_width=1.4,
+                          allowable_peak_gap=10):
         """
         Flag the locations of any lines, and subtract the non-zero bandpass
         everywhere else. Provide the flattened spectrum in self.modified.
@@ -267,7 +271,7 @@ class Spectrum(object):
         for i in range(len(edges)//2):
             e1, e2 = edges[2*i], edges[2*i+1]
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Interpolation edges: %s, %s" % (e1, e2))
+                logger.debug("Interpolation edges: %s, %s", e1, e2)
 
             # if e1 < allowable_peak_gap or e2 > len(self.original) - allowable_peak_gap:
             #     if logger.isEnabledFor(logging.DEBUG):
